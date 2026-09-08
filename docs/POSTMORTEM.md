@@ -94,3 +94,60 @@ this step would instead be "rolled back bad deploy" or "failed over to healthy r
 | Add auto-expiry to `/chaos` mode (e.g., reset after 5 min) | you | P2 | Open |
 | Wire Cloud Monitoring alert to Slack webhook | you | P1 | Open |
 | Add this scenario to onboarding runbook | you | P3 | Open |
+
+---
+
+# Incident 2: Stale Chaos State After Distributed Restart (Real, Unplanned)
+
+## Summary
+- **Date:** 2026-09-08
+- **Duration:** ~15 minutes of elevated error rate
+- **Impact:** Error rate fluctuated between 0.5-1.5 errors/sec even after chaos mode was reset via the public endpoint
+- **Severity:** Sev3 (self-discovered during dashboard validation, no customer impact)
+
+## Timeline
+| Time | Event |
+|---|---|
+| ~20:42 | Chaos mode reset via curl - confirmed "none" in response |
+| ~20:50 | Dashboard still showed elevated error rate despite reset confirmation |
+| ~20:53 | Investigated: deployment runs 2 replicas behind a LoadBalancer Service |
+| ~20:55 | Hypothesis: chaos_mode stored in each pod's local Python memory, not shared state |
+| ~20:58 | Ran kubectl rollout restart deployment/orders-api for guaranteed clean state |
+| ~21:00 | New pods confirmed Running; chaos_mode: none verified via repeated curls |
+| ~21:05 | Ran full load test - zero 500s across the entire run, confirming resolution |
+
+## Root cause
+Chaos-mode state lived in an in-process Python dict local to each pod's memory.
+With 2 replicas behind one Service, a single reset request only affected
+whichever pod received it via round-robin routing. The other replica kept
+serving errors indefinitely.
+
+## Detection
+Dashboard showed persistently elevated error rate despite an apparently
+successful reset - the mismatch was the signal something deeper was wrong.
+
+## Resolution
+kubectl rollout restart deployment/orders-api - forces all pods to restart
+fresh, resetting in-memory state to the code default (mode=none) everywhere
+simultaneously. Confirmed via a full 120-second load test showing 100% clean
+200/404 responses with zero 500s.
+
+## Impact
+Elevated error rate for approximately 15 minutes while diagnosing, entirely
+self-inflicted during a monitoring/drill exercise on a personal project.
+
+## What went well
+- Dashboard caught a real anomaly a single manual curl check would have missed
+- Correctly reasoned from symptom to root cause without reading app code first
+- Verified the fix properly with a full load test rather than a single spot-check
+
+## What went poorly
+- Application was designed with in-memory-only state, which breaks correctness
+  across multiple replicas - a real anti-pattern
+
+## Action items
+| Action | Owner | Priority | Status |
+|---|---|---|---|
+| Move chaos_mode to shared store (Redis/ConfigMap) for true multi-replica correctness | you | P2 | Open |
+| Add pod identity to /chaos response to make per-pod state visible | you | P3 | Open |
+| Document lesson: never trust in-memory state to be consistent across replicas | you | P1 | Done |
