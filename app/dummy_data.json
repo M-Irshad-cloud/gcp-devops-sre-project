@@ -1,0 +1,21 @@
+{
+  "orders": [
+    {"id": 1001, "customer": "Ayesha Khan", "item": "Wireless Mouse", "quantity": 2, "price": 15.99, "status": "shipped", "region": "PK"},
+    {"id": 1002, "customer": "Bilal Ahmed", "item": "Mechanical Keyboard", "quantity": 1, "price": 89.50, "status": "processing", "region": "PK"},
+    {"id": 1003, "customer": "Sara Malik", "item": "USB-C Hub", "quantity": 3, "price": 24.00, "status": "delivered", "region": "AE"},
+    {"id": 1004, "customer": "Hamza Farooq", "item": "27in Monitor", "quantity": 1, "price": 249.99, "status": "shipped", "region": "PK"},
+    {"id": 1005, "customer": "Zainab Riaz", "item": "Laptop Stand", "quantity": 2, "price": 32.75, "status": "cancelled", "region": "UK"},
+    {"id": 1006, "customer": "Usman Tariq", "item": "Webcam 1080p", "quantity": 1, "price": 45.20, "status": "delivered", "region": "PK"},
+    {"id": 1007, "customer": "Mahnoor Iqbal", "item": "Noise Cancelling Headphones", "quantity": 1, "price": 129.00, "status": "processing", "region": "US"},
+    {"id": 1008, "customer": "Ali Raza", "item": "Portable SSD 1TB", "quantity": 2, "price": 89.99, "status": "shipped", "region": "PK"},
+    {"id": 1009, "customer": "Fatima Noor", "item": "Ergonomic Chair", "quantity": 1, "price": 199.00, "status": "delivered", "region": "DE"},
+    {"id": 1010, "customer": "Hassan Sheikh", "item": "Smartwatch", "quantity": 1, "price": 149.99, "status": "processing", "region": "PK"}
+  ],
+  "users": [
+    {"id": 1, "name": "Ayesha Khan", "email": "ayesha.k@example.com", "tier": "gold"},
+    {"id": 2, "name": "Bilal Ahmed", "email": "bilal.a@example.com", "tier": "silver"},
+    {"id": 3, "name": "Sara Malik", "email": "sara.m@example.com", "tier": "gold"},
+    {"id": 4, "name": "Hamza Farooq", "email": "hamza.f@example.com", "tier": "bronze"},
+    {"id": 5, "name": "Zainab Riaz", "email": "zainab.r@example.com", "tier": "silver"}
+  ]
+}
