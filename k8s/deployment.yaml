@@ -22,7 +22,7 @@ spec:
       containers:
         - name: orders-api
           # Cloud Build's gke-deploy step substitutes the real image at deploy time
-          image: orders-api:latest
+          image: us-central1-docker.pkg.dev/project-150ab1c3-a7b7-43f8-8c2/orders-api-repo/orders-api:v1
           ports:
             - containerPort: 8080
           resources:
