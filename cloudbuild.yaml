@@ -1,14 +1,5 @@
-# Cloud Build pipeline: test -> build -> push to Artifact Registry -> deploy to GKE
-#
-# Set these substitutions in the Cloud Build trigger (or pass with --substitutions):
-#   _REGION       e.g. us-central1
-#   _REPO         Artifact Registry repo name, e.g. orders-api-repo
-#   _CLUSTER      GKE cluster name
-#   _ZONE         GKE cluster zone, e.g. us-central1-a
-#   _IMAGE_NAME   e.g. orders-api
-
 steps:
-  # 1. Install deps and run a basic smoke test
+  # 1. Smoke test
   - name: "python:3.12-slim"
     entrypoint: bash
     args:
@@ -31,29 +22,28 @@ steps:
       - build
       - "-t"
       - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA"
-      - "-t"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:latest"
       - "./app"
 
-  # 3. Push the image to Artifact Registry
+  # 3. Push to Artifact Registry
   - name: "gcr.io/cloud-builders/docker"
     args:
       - push
-      - "--all-tags"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA"
 
-  # 4. Deploy to GKE
-  - name: "gcr.io/cloud-builders/gke-deploy"
+  # 4. Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
     args:
       - run
-      - "--filename=k8s/"
+      - deploy
+      - "${_SERVICE_NAME}"
       - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA"
-      - "--cluster=${_CLUSTER}"
-      - "--location=${_ZONE}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
 
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA"
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:latest"
 
 options:
   logging: CLOUD_LOGGING_ONLY

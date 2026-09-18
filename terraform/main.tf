@@ -7,10 +7,8 @@ terraform {
     }
   }
 
-  # Remote state - create this bucket manually first:
-  #   gsutil mb -l us-central1 gs://YOUR_PROJECT_ID-tfstate
   backend "gcs" {
-    bucket = "REPLACE_WITH_YOUR_TFSTATE_BUCKET"
+    bucket = "project-150ab1c3-a7b7-43f8-8c2-tfstate"
     prefix = "devops-sre-project/state"
   }
 }
@@ -20,11 +18,9 @@ provider "google" {
   region  = var.region
 }
 
-# --- Enable required APIs ---
 resource "google_project_service" "services" {
   for_each = toset([
-    "compute.googleapis.com",
-    "container.googleapis.com",
+    "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "monitoring.googleapis.com",
@@ -34,66 +30,47 @@ resource "google_project_service" "services" {
   disable_on_destroy = false
 }
 
-# --- Networking ---
-resource "google_compute_network" "vpc" {
-  name                    = var.network_name
-  auto_create_subnetworks = false
-  depends_on              = [google_project_service.services]
-}
-
-resource "google_compute_subnetwork" "subnet" {
-  name          = "${var.network_name}-subnet"
-  ip_cidr_range = var.subnet_cidr
-  region        = var.region
-  network       = google_compute_network.vpc.id
-
-  secondary_ip_range {
-    range_name    = "pods"
-    ip_cidr_range = "10.20.0.0/16"
-  }
-  secondary_ip_range {
-    range_name    = "services"
-    ip_cidr_range = "10.30.0.0/20"
-  }
-}
-
-resource "google_compute_firewall" "allow_internal" {
-  name    = "${var.network_name}-allow-internal"
-  network = google_compute_network.vpc.id
-
-  allow {
-    protocol = "tcp"
-  }
-  allow {
-    protocol = "udp"
-  }
-  source_ranges = [var.subnet_cidr]
-}
-
-# --- GKE Autopilot cluster (cheaper/simpler for learning; pay only for running pods) ---
-resource "google_container_cluster" "primary" {
-  name     = var.cluster_name
-  location = var.region
-
-  enable_autopilot = true
-
-  network    = google_compute_network.vpc.id
-  subnetwork = google_compute_subnetwork.subnet.id
-
-  ip_allocation_policy {
-    cluster_secondary_range_name  = "pods"
-    services_secondary_range_name = "services"
-  }
-
-  deletion_protection = false
-
-  depends_on = [google_project_service.services]
-}
-
-# --- Artifact Registry for container images ---
 resource "google_artifact_registry_repository" "orders_api_repo" {
   location      = var.region
   repository_id = var.artifact_repo_name
   format        = "DOCKER"
   depends_on    = [google_project_service.services]
+}
+
+resource "google_cloud_run_v2_service" "orders_api" {
+  name     = var.service_name
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+
+  template {
+    containers {
+      image = "us-docker.pkg.dev/cloudrun/container/hello"
+      ports {
+        container_port = 8080
+      }
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+    }
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 4
+    }
+  }
+
+  depends_on = [google_project_service.services]
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_member" "public_access" {
+  location = google_cloud_run_v2_service.orders_api.location
+  name     = google_cloud_run_v2_service.orders_api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
